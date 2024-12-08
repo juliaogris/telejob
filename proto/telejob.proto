@@ -11,14 +11,14 @@ option go_package = "github.com/juliaogris/telejob/pkg/pb";
 service Telejob {
   rpc Start(StartRequest) returns (StartResponse) {}
   rpc Stop(StopRequest) returns (StopResponse) {}
-  rpc List(ListRequest) returns (ListResponse) {}
   rpc Status(StatusRequest) returns (StatusResponse) {}
   rpc Logs(LogsRequest) returns (stream LogsResponse) {}
 }
 
 // StartRequest contains the command and arguments to execute.
 message StartRequest {
-  repeated string command = 1;
+  string command = 1;
+  repeated string arguments = 2;
 }
 
 // StartResponse contains the id of the started job.
@@ -34,25 +34,15 @@ message StopRequest {
 // StopResponse is empty.
 message StopResponse {}
 
-// ListRequest specifies whether to query all or only running jobs for
-// requesting user.
-message ListRequest {
-  bool all = 1;
-}
-
-// ListResponse response holds status details of a user's jobs.
-message ListResponse {
-  repeated JobStatus jobs = 1;
-}
-
 // JobStatus contains the current status of a running or stopped job.
 message JobStatus {
   string id = 1; // job id
-  repeated string command = 2;
-  State state = 3;
-  google.protobuf.Timestamp started = 4;
-  google.protobuf.Timestamp stopped = 5;
-  int64 exit_code = 6;
+  string command = 2;
+  repeated string arguments = 3;
+  State state = 4;
+  google.protobuf.Timestamp started = 5;
+  google.protobuf.Timestamp stopped = 6;
+  int64 exit_code = 7; // -1: terminated by signal; -2: still running;
 }
 
 // State represents the current state of a job, running or stopped.
@@ -80,5 +70,5 @@ message LogsRequest {
 
 // LogsResponse contains a chunk of logs.
 message LogsResponse {
-  bytes chunk = 1;
+  bytes chunk = 1; // stdout and stderr are combined into a single stream.
 }
