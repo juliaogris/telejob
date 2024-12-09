@@ -34,6 +34,11 @@ To execute a full CI run locally run:
 
     just ci
 
+Stress test with a numeric argument specifying the number of concurrent jobs
+(maximum: ~9000, limited by Go's runtime):
+
+    just stress JOBS
+
 All other targets can be listed with `just --list`.
 
 ### Hermit
