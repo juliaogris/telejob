@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package telejob.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/juliaogris/telejob/pkg/pb";
+
+// The Telejob service executes commands on the service's host with resource
+// limits.
+service Telejob {
+  rpc Start(StartRequest) returns (StartResponse) {}
+  rpc Stop(StopRequest) returns (StopResponse) {}
+  rpc Status(StatusRequest) returns (StatusResponse) {}
+  rpc Logs(LogsRequest) returns (stream LogsResponse) {}
+}
+
+// StartRequest contains the command and arguments to execute.
+message StartRequest {
+  string command = 1;
+  repeated string arguments = 2;
+}
+
+// StartResponse contains the id of the started job.
+message StartResponse {
+  string id = 1;
+}
+
+// StopRequest contains the id of the job to stop.
+message StopRequest {
+  string id = 1;
+}
+
+// StopResponse is empty.
+message StopResponse {}
+
+// JobStatus contains the current status of a running or stopped job.
+message JobStatus {
+  string id = 1; // job id
+  string command = 2;
+  repeated string arguments = 3;
+  State state = 4;
+  google.protobuf.Timestamp started = 5;
+  google.protobuf.Timestamp stopped = 6;
+  int64 exit_code = 7; // -1: terminated by signal; -2: still running;
+}
+
+// State represents the current state of a job, running or stopped.
+enum State {
+  STATE_UNSPECIFIED = 0;
+  STATE_RUNNING = 1;
+  STATE_STOPPED = 2;
+}
+
+// StatusRequest contains the id of the job to query.
+message StatusRequest {
+  string id = 1;
+}
+
+// StatusResponse contains the current status of the job.
+message StatusResponse {
+  JobStatus job_status = 1;
+}
+
+// LogsRequest contains the id of the job to query and whether to follow logs.
+message LogsRequest {
+  string id = 1;
+  bool follow = 2;
+}
+
+// LogsResponse contains a chunk of logs.
+message LogsResponse {
+  bytes chunk = 1; // stdout and stderr are combined into a single stream.
+}

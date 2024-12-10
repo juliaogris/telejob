@@ -1,0 +1,5 @@
+version: v2
+lint:
+  except:
+    - PACKAGE_DIRECTORY_MATCH # Don't over-structure small projects.
+    - SERVICE_SUFFIX
