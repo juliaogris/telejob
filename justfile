@@ -15,6 +15,10 @@ test name="":
 stress jobs:
        sudo bin/go test -v -race -count=1 -run="Many" ./pkg/job -jobs={{jobs}}
 
+# Generate go code from proto files.
+proto:
+	buf generate
+
 # Lint Go and Proto files.
 lint:
 	golangci-lint run
@@ -26,6 +30,10 @@ fmt:
 	go mod tidy
 	buf format -w
 
+# Remove all generated files.
+clean:
+	rm -rf pkg/pb
+
 [private]
-check-uptodate: fmt
+check-uptodate: proto fmt
 	test -z $(git status --porcelain) || { git status; false; }
