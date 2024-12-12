@@ -1,0 +1,13 @@
+issues:
+  exclude-use-default: false
+linters:
+  enable-all: true
+  disable:
+    - depguard # We use dependencies.
+    - exhaustruct # Too strict, ex.: with errors.As(&SomeUnpopulatedErr).
+    - exportloopref # Deprecated.
+    - lll # Accept long lines for //nolint comments and links.
+    - mnd # Too strict with magic numbers, ex.: 0.
+    - nlreturn # Overly prescriptive on whitespace.
+    - varnamelen # Too strict, `id` is a fine name.
+    - wsl # Overly prescriptive on whitespace.
