@@ -52,7 +52,7 @@ func TestControllerSimple(t *testing.T) {
 		Args:     []string{"10"},
 		Started:  got.Started,
 		Running:  false,
-		ExitCode: -1,
+		ExitCode: job.TerminatedBySignal,
 		Stopped:  got.Stopped,
 	}
 	require.Equal(t, want, got)
@@ -189,7 +189,7 @@ func TestControllerExitCode(t *testing.T) {
 	requireEventuallyStopped(t, controller, "owner1", id1)
 	status, err = controller.Status("owner1", id1)
 	require.NoError(t, err)
-	require.Equal(t, -1, status.ExitCode) // SIGKILL
+	require.Equal(t, job.TerminatedBySignal, status.ExitCode) // SIGKILL
 
 	id1, err = controller.Start("owner1", "false")
 	require.NoError(t, err)
