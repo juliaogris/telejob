@@ -58,3 +58,36 @@ For automatic activation when entering the project directory, install
 
 [Hermit]: https://cashapp.github.io/hermit
 [Hermit shell hooks]: https://cashapp.github.io/hermit/usage/shell/#shell-hooks
+
+## Certificates
+
+Generate client and server Certificate Authorities (CAs) as well as certificates
+for the server and client with:
+
+    just certs
+
+This command creates the following files in the `certs/` directory:
+
+- `server-ca.crt` (expiry: 10 years, CA)
+- `server-ca.key`
+- `client-ca.crt` (expiry: 10 years, CA)
+- `client-ca.key`
+- `server.crt` (expiry: 90 days, IP: 127.0.0.1, domain: localhost)
+- `server.key`
+- `client1.crt` (expiry: 1 day, IP: 127.0.0.1, domain: localhost)
+- `client1.key`
+- `client2.crt` (expiry: 1 day, IP: 127.0.0.1, domain: localhost)
+- `client2.key`
+
+This repository also includes test certificates with extended expiry in the
+`pkg/telejob/testdata/` directory. These were generated with the following
+commands:
+
+    cdir="pkg/telejob/testdata"
+    CERT_DIR=$cdir CERT_EXPIRY="20 years" just certs
+    CERT_DIR=$cdir CERT_IP="" just cert client-no-ip client-ca "20 years"
+    CERT_DIR=$cdir CERT_IP="" just cert server-no-ip server-ca "20 years"
+
+**Note:** The test certificates are insecure as they have their private keys
+published and extended expiry. Do not use them for any purpose other than
+testing.
