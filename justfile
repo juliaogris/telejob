@@ -1,3 +1,4 @@
+out := 'out'
 cert_dir := x'${CERT_DIR:-certs}'
 cert_expiry := x'${CERT_EXPIRY:-1 day}'
 cert_ip := x'${CERT_IP:-127.0.0.1}'
@@ -6,11 +7,15 @@ cert_domain := x'${CERT_DOMAIN:-localhost}'
 set quiet
 
 # Run all checks.
-all: test lint
+all: build test lint
 
 # Run all checks, require up-to-date repository.
 ci: check-uptodate all
 	echo "{{GREEN}}CI passed{{NORMAL}}"
+
+# Build server and client binaries.
+build: out
+	go build -o {{out}} ./cmd/...
 
 # Test Go code. `just test Simple` runs TestControllerSimple only.
 test name="":
@@ -37,11 +42,45 @@ fmt:
 
 # Remove all generated files.
 clean:
+	rm -rf {{out}}
 	rm -rf pkg/pb
 
 [private]
 check-uptodate: proto fmt
 	test -z $(git status --porcelain) || { git status; false; }
+
+[private]
+out:
+	mkdir -p {{out}}
+
+# ------------------ Execution ------------------
+test_cert_dir := "pkg/telejob/testdata"
+client := "1"
+
+server_env := replace("
+	TELEJOB_ADDRESS=localhost:8443
+	TELEJOB_SERVER_CERT="+test_cert_dir/"server.crt
+	TELEJOB_SERVER_KEY="+test_cert_dir/"server.key
+	TELEJOB_CLIENT_CA_CERT="+test_cert_dir/"client-ca.crt", "\n", "")
+
+client_env := replace("
+	TELEJOB_ADDRESS=localhost:8443
+	TELEJOB_CLIENT_CERT="+test_cert_dir/"client"+client+".crt
+	TELEJOB_CLIENT_KEY="+test_cert_dir/"client"+client+".key
+	TELEJOB_SERVER_CA_CERT="+test_cert_dir/"server-ca.crt
+	TELEJOB_TIME_FORMAT=15:04:05", "\n", "")
+
+# Start server.
+[positional-arguments]
+[group('execution')]
+serve *args='':	build
+	sudo {{server_env}} ./{{out}}/telejob-server $@
+
+# Run client. `just run start sleep 10`
+[positional-arguments]
+[group('execution')]
+run *args='': build
+	{{client_env}} ./{{out}}/telejob "$@"
 
 # ------------------ Certificates ------------------
 

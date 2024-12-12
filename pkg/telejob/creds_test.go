@@ -18,7 +18,7 @@ func TestCredsBadClientCA(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, badClientCA)
 	defer ts.Stop()
 
-	client, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 
 	_, err = client.Start(context.Background(), &pb.StartRequest{Command: "true"})
@@ -32,7 +32,7 @@ func TestCredsServerCertNoIP(t *testing.T) {
 	ts := newTestServer(t, noIPServerCrt, noIPServerKey, clientCA)
 	defer ts.Stop()
 
-	client, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 
 	_, err = client.Start(context.Background(), &pb.StartRequest{Command: "true"})
@@ -49,23 +49,23 @@ func TestCredsBadClient(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, clientCA)
 	defer ts.Stop()
 
-	client, err := telejob.NewClient(ts.Address(), crt1, key1, badServerCA)
+	client, err := telejob.NewClient(ts.address, crt1, key1, badServerCA)
 	require.NoError(t, err)
 	_, err = client.Start(context.Background(), &pb.StartRequest{Command: "true"})
 	s, ok := status.FromError(err)
 	require.True(t, ok)
 	require.Equal(t, codes.Unavailable, s.Code())
 
-	_, err = telejob.NewClient(ts.Address(), badCrt1, key1, serverCA)
+	_, err = telejob.NewClient(ts.address, badCrt1, key1, serverCA)
 	require.Error(t, err)
 	require.ErrorIs(t, err, telejob.ErrCredentials)
 
-	_, err = telejob.NewClient(ts.Address(), badCrt1, key1, serverCA)
+	_, err = telejob.NewClient(ts.address, badCrt1, key1, serverCA)
 	require.Error(t, err)
 	require.ErrorIs(t, err, telejob.ErrCredentials)
 
 	// happy case: no IP required for client, ensuring no server config error
-	client, err = telejob.NewClient(ts.Address(), noIPCrt, noIPKey, serverCA)
+	client, err = telejob.NewClient(ts.address, noIPCrt, noIPKey, serverCA)
 	require.NoError(t, err)
 	_, err = client.Start(context.Background(), &pb.StartRequest{Command: "true"})
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestCredsPlainText(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, clientCA)
 	defer ts.Stop()
 
-	conn, err := grpc.NewClient(ts.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(ts.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	rawClient := pb.NewTelejobClient(conn)
 	_, err = rawClient.Start(context.Background(), &pb.StartRequest{Command: "true"})
@@ -84,7 +84,7 @@ func TestCredsPlainText(t *testing.T) {
 	require.Equal(t, codes.Unavailable, status.Convert(err).Code())
 
 	// happy case, ensuring no server config error
-	client, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 	_, err = client.Start(context.Background(), &pb.StartRequest{Command: "true"})
 	require.NoError(t, err)

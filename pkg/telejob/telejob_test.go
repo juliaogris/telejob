@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestServiceSimple(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, clientCA)
 	defer ts.Stop()
 
-	client, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -96,7 +97,7 @@ func TestServiceNotFound(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, clientCA)
 	defer ts.Stop()
 
-	client1, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client1, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -112,7 +113,7 @@ func TestServiceOwnership(t *testing.T) {
 	ts := newTestServer(t, serverCrt, serverKey, clientCA)
 	defer ts.Stop()
 
-	client1, err := telejob.NewClient(ts.Address(), crt1, key1, serverCA)
+	client1, err := telejob.NewClient(ts.address, crt1, key1, serverCA)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -122,7 +123,7 @@ func TestServiceOwnership(t *testing.T) {
 	_, err = client1.Status(ctx, &pb.StatusRequest{Id: id1})
 	require.NoError(t, err)
 
-	client2, err := telejob.NewClient(ts.Address(), crt2, key2, serverCA)
+	client2, err := telejob.NewClient(ts.address, crt2, key2, serverCA)
 	require.NoError(t, err)
 	startResp, err = client2.Start(ctx, &pb.StartRequest{Command: "true"})
 	require.NoError(t, err)
@@ -164,18 +165,25 @@ func timeFromPB(t *timestamppb.Timestamp) time.Time {
 	return t.AsTime()
 }
 
-func newTestServer(t *testing.T, serverCrt, serverKey, clientCA string) *telejob.Server {
+type testServer struct {
+	*telejob.Server
+	address string
+}
+
+func newTestServer(t *testing.T, serverCrt, serverKey, clientCA string) *testServer {
 	t.Helper()
 	opts := []job.Option{
 		//nolint:gosec // G404: Use of weak random number generator
 		job.WithCgroup(fmt.Sprintf("/sys/fs/cgroup/telejob-%d", rand.Uint64())),
 	}
-	server, err := telejob.NewServer("127.0.0.1:0", serverCrt, serverKey, clientCA, opts...)
+	server, err := telejob.NewServer(serverCrt, serverKey, clientCA, opts...)
+	require.NoError(t, err)
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	go func() {
-		if err := server.Serve(); err != nil {
+		if err := server.Serve(lis); err != nil {
 			t.Errorf("cannot start test server %v", err)
 		}
 	}()
-	return server
+	return &testServer{Server: server, address: lis.Addr().String()}
 }

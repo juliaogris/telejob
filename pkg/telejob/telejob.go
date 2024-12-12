@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"os/signal"
 	"time"
@@ -17,7 +16,6 @@ import (
 
 // Sentinel Errors returned by the telejob package.
 var (
-	ErrListen      = errors.New("failed to listen")
 	ErrCredentials = errors.New("credentials setup error")
 	ErrCertLoad    = errors.New("certificate load error")
 	ErrCASetup     = errors.New("CA setup error")
@@ -38,7 +36,6 @@ type Client struct {
 // as well as managing the underlying job controller.
 type Server struct {
 	*grpc.Server
-	lis        net.Listener
 	controller *job.Controller
 }
 
@@ -86,11 +83,7 @@ func (c *Client) Close() error {
 //
 // If there is an error listening on the address, setting up the TLS
 // configuration, or creating the job controller, an error is returned.
-func NewServer(address, serverCert, serverKey, clientCA string, jobOpts ...job.Option) (*Server, error) {
-	lis, err := net.Listen("tcp", address)
-	if err != nil {
-		return nil, fmt.Errorf("NewServer: %w: %q: %w", ErrListen, address, err)
-	}
+func NewServer(serverCert, serverKey, clientCA string, jobOpts ...job.Option) (*Server, error) {
 	tlsConfig, err := serverTLSConfig(serverCert, serverKey, clientCA)
 	if err != nil {
 		return nil, fmt.Errorf("NewServer: %w: %w", ErrCredentials, err)
@@ -110,21 +103,7 @@ func NewServer(address, serverCert, serverKey, clientCA string, jobOpts ...job.O
 	return &Server{
 		Server:     grpcServer,
 		controller: controller,
-		lis:        lis,
 	}, nil
-}
-
-// Serve starts the server and listens for incoming connections.
-func (s *Server) Serve() error {
-	if err := s.Server.Serve(s.lis); err != nil {
-		return fmt.Errorf("%w: serve: %w", ErrListen, err)
-	}
-	return nil
-}
-
-// Address returns the server's listening address.
-func (s *Server) Address() string {
-	return s.lis.Addr().String()
 }
 
 // Stop stops the server ungracefully and shuts down the job controller.

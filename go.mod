@@ -3,6 +3,7 @@ module github.com/juliaogris/telejob
 go 1.23.4
 
 require (
+	github.com/alecthomas/kong v1.6.0
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.68.1
 	google.golang.org/protobuf v1.35.2
