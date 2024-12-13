@@ -1,9 +1,16 @@
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: cmd/telejob/main_test\.go
+    - path: cmd/telejob/main_test.go
       linters:
+        - gosec
+        - ireturn
         - paralleltest
+        - wrapcheck
+    - path: pkg/job/logs_test.go
+      linters:
+        - gosec
+        - testpackage
 linters:
   enable-all: true
   disable:

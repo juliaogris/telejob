@@ -6,6 +6,7 @@
 //   - start: starts a new job.
 //   - stop: stops a running job.
 //   - status: retrieves the status of a job.
+//   - logs: stream logs of a job.
 //
 // Each command requires the address of the Telejob server and the client's
 // certificate and key for mTLS authentication. The server's CA certificate
@@ -25,12 +26,14 @@
 //		telejob start sleep 100
 //		telejob stop <job_id>
 //		telejob status <job_id>
+//		telejob logs <job_id>
 //	    telejob [COMMAND] --help
 package main
 
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,6 +54,7 @@ type app struct {
 	Start  startCmd  `cmd:"" help:"Start a new job."`
 	Stop   stopCmd   `cmd:"" help:"Stop the job with given ID."`
 	Status statusCmd `cmd:"" help:"Status the job with given ID."`
+	Logs   logsCmd   `cmd:"" help:"Print logs of the job with given ID. Continuously stream additional output."`
 }
 
 func main() {
@@ -79,6 +83,11 @@ type statusCmd struct {
 	cmd
 	ID         string `arg:"" required:"" help:"Job ID, use 'list' to find IDs."`
 	TimeFormat string `short:"t" help:"Time format." default:"2006-01-02T15:04:05Z07:00" env:"TELEJOB_TIME_FORMAT"`
+}
+
+type logsCmd struct {
+	cmd
+	ID string `arg:"" required:"" help:"Job ID."`
 }
 
 type cmd struct {
@@ -126,6 +135,27 @@ func (c *statusCmd) Run() error {
 		return fmt.Errorf("failed to get job status: %w", err)
 	}
 	return printJobStatus(c.w, resp.GetJobStatus(), c.TimeFormat)
+}
+
+// Run is called by [kong] when the CLI arguments contain the `logs` command.
+func (c *logsCmd) Run() error {
+	req := &pb.LogsRequest{Id: c.ID}
+	stream, err := c.client.Logs(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("cannot open job logs stream: %w", err)
+	}
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil // stream closed,
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get job logs from stream: %w", err)
+		}
+		if _, err := c.w.Write(resp.GetChunk()); err != nil {
+			return fmt.Errorf("failed to print logs: %w ", err)
+		}
+	}
 }
 
 // AfterApply is called by [kong] immediately after flag validation and

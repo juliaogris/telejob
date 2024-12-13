@@ -135,10 +135,16 @@ To execute a full CI run locally run:
 
     just ci
 
-Stress test with a numeric argument specifying the number of concurrent jobs
-(maximum: ~9000, limited by Go's runtime):
+To execute stress tests, run `just stress` with optional arguments:
 
-    just stress JOBS
+    just stress JOBS=100 LOG_READERS=100 ADDRESS=""
+
+This build target accepts optional arguments: `JOBS` for the number of
+concurrent jobs to start (maximum: ~9000, limited by Go's runtime) and
+`LOG_READERS` for the number of concurrent log readers streaming logs. There
+is also an optional `ADDRESS` argument to specify an external telejob server,
+which can be useful for inspecting logs. If `ADDRESS` is not set, an internal
+test server is started on a free port and stopped after the tests complete.
 
 All other targets can be listed with `just --list`.
 
@@ -176,6 +182,21 @@ example:
     just run status <ID>
     just run stop <ID>
     just run status <ID>
+
+To test log streaming run:
+
+    touch /tmp/logs
+    just run start -- tail --follow /tmp/logs
+    just run logs <ID>
+
+In a separate terminal, append data to `/tmp/logs` and start another log reader:
+
+    echo "Hello" >> /tmp/logs
+    just run logs <ID>
+
+Repeat the last two commands in separate terminals and observe how all log
+readers receive new data, even after canceling some readers or stopping the
+initial `tail` job.
 
 ## Build and Run
 

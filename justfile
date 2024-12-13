@@ -21,9 +21,10 @@ build: out
 test name="":
        sudo bin/go test -v -race -count=1  -run={{name}} ./...
 
-# Stress test. `just stress 1000` runs with 1000 jobs.
-stress jobs:
+# Stress test. `just stress 10 20` runs with 10 jobs, 20 log reads.
+stress jobs="1000" readers="1000" address="":
        sudo bin/go test -v -race -count=1 -run="Many" ./pkg/job -jobs={{jobs}}
+       sudo bin/go test -v -race -count=1 -run="Many" ./cmd/telejob -readers={{readers}} -address={{address}}
 
 # Generate go code from proto files.
 proto:
