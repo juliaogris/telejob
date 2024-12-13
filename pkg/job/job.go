@@ -101,9 +101,31 @@ func (j *job) wait() {
 	if err := writeCgroupFile(j.cgroup, "cgroup.kill", "1"); err != nil {
 		slog.Error("cannot write to cgroup.kill", "err", err, "id", j.status.ID)
 	}
-	if err := deleteCgroup(j.cgroup); err != nil {
-		slog.Error("cannot cleanup job cgroup", "err", err, "id", j.status.ID)
+	deleteCgroupWithRetry(j.cgroup, j.status.ID, 3, time.Second)
+}
+
+// deleteCgroupWithRetry deletes the cgroup with the given id and retries the
+// deletion if it fails with EBUSY (device or resource busy).
+//
+// It retries the deletion a specified number of times with a fixed duration
+// between each attempt. If all retries fail, it logs an error.
+func deleteCgroupWithRetry(cgroup, id string, retries int, dur time.Duration) {
+	for i := range retries {
+		err := deleteCgroup(cgroup)
+		if err == nil {
+			if i > 0 {
+				slog.Info("successfully cleanup job cgroup", "id", id, "attempt", i+1)
+			}
+			return // successful deletion
+		}
+		if !errors.Is(err, syscall.EBUSY) {
+			slog.Error("cannot delete cgroup", "err", err, "id", id)
+			return
+		}
+		slog.Info("retrying cleanup job cgroup", "err", err, "id", id, "attempt", i+1)
+		time.Sleep(dur) // consider better back-off strategy than constant wait
 	}
+	slog.Error("cannot delete cgroup after retries", "id", id, "attempt", retries)
 }
 
 // newStartedCmd creates a new started command with the given limits and cgroup.
