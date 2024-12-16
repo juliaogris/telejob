@@ -1,5 +1,9 @@
 issues:
   exclude-use-default: false
+  exclude-rules:
+    - path: cmd/telejob/main_test\.go
+      linters:
+        - paralleltest
 linters:
   enable-all: true
   disable:
@@ -9,5 +13,6 @@ linters:
     - lll # Accept long lines for //nolint comments and links.
     - mnd # Too strict with magic numbers, ex.: 0.
     - nlreturn # Overly prescriptive on whitespace.
+    - tagalign # Doesn't play nicely with kong.
     - varnamelen # Too strict, `id` is a fine name.
     - wsl # Overly prescriptive on whitespace.

@@ -20,7 +20,10 @@ var (
 // The os package uses an exit code of -1 if the process hasn't exited or was
 // terminated by a signal. To avoid ambiguity, this package uses -2 to
 // specifically represent a job that has not yet terminated.
-const NotTerminated = -2
+const (
+	NotTerminated      = -2
+	TerminatedBySignal = -1
+)
 
 // Status represents the current state of the job.
 type Status struct {
