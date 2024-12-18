@@ -4,6 +4,7 @@
 //   - Start: Creates and starts a new job.
 //   - Stop: Stops a running job.
 //   - Status: Returns the current status of a job.
+//   - Logs: Stream logs of a job.
 //
 // ## Job Access:
 // Started jobs may only be accessed by their owner.
@@ -18,8 +19,10 @@
 package job
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -35,6 +38,7 @@ import (
 //   - Start jobs.
 //   - Stop jobs.
 //   - Retrieve job status.
+//   - Stream job logs.
 type Controller struct {
 	mutex         sync.Mutex
 	wg            sync.WaitGroup
@@ -134,6 +138,21 @@ func (c *Controller) Status(owner, id string) (Status, error) {
 		return Status{}, err
 	}
 	return job.getStatus(), nil
+}
+
+// LogsReader returns an io.Reader for reading logs of the job with the given
+// ID.
+//
+// Calls to Read on the returned reader will block until more data is available,
+// the end of the log stream is reached (io.EOF) and the job is terminated, or
+// the provided context is cancelled. The maximum log chunk size is determined
+// by size of the buffer passed to the Read method.
+func (c *Controller) LogsReader(ctx context.Context, id, owner string) (io.Reader, error) {
+	job, err := c.get(id, owner)
+	if err != nil {
+		return nil, err
+	}
+	return job.newLogReader(ctx), nil
 }
 
 // StopAll stops all running jobs and cleans up the controller's resources.

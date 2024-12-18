@@ -3,6 +3,9 @@ package telejob
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	"github.com/juliaogris/telejob/pkg/job"
@@ -73,9 +76,33 @@ func (s *Service) Status(ctx context.Context, req *pb.StatusRequest) (*pb.Status
 	return &pb.StatusResponse{JobStatus: pbJobStatus(js)}, nil
 }
 
-// Logs is not yet implemented.
-func (s *Service) Logs(_ *pb.LogsRequest, _ pb.Telejob_LogsServer) error {
-	return status.Errorf(codes.Unimplemented, "not yet implemented")
+// Logs streams the logs of the job with the given ID to the provided gRPC
+// server stream. Log data is retrieved from the [job.Controller] and sent in
+// chunks of [LogChunkSize] bytes.
+func (s *Service) Logs(req *pb.LogsRequest, stream pb.Telejob_LogsServer) error {
+	ctx := stream.Context()
+	owner := extractOwner(ctx)
+	reader, err := s.Controller.LogsReader(ctx, owner, req.GetId())
+	if err != nil {
+		return statusError(err, req.GetId())
+	}
+	p := make([]byte, LogChunkSize)
+	for {
+		n, err := reader.Read(p)
+		switch {
+		case errors.Is(err, io.EOF):
+			return nil
+		case err != nil:
+			return status.Errorf(codes.Internal, "error reading logs: %v", err)
+		case n == 0:
+			continue
+		}
+		resp := &pb.LogsResponse{Chunk: p[:n]}
+		if err := stream.Send(resp); err != nil {
+			slog.Error("cannot send log stream", "err", err)
+			return fmt.Errorf("%w: cannot send log stream: %w", ErrStreamSend, err)
+		}
+	}
 }
 
 // pbJobStatus converts a job.Status to a pb.JobStatus.

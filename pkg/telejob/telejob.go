@@ -14,6 +14,9 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// LogChunkSize is the size of log chunks sent over the stream (16KB).
+const LogChunkSize = 16 * 1024
+
 // Sentinel Errors returned by the telejob package.
 var (
 	ErrCredentials = errors.New("credentials setup error")
@@ -21,6 +24,7 @@ var (
 	ErrCASetup     = errors.New("CA setup error")
 	ErrCommonName  = errors.New("failed to extract Common Name")
 	ErrClientConn  = errors.New("client connection error")
+	ErrStreamSend  = errors.New("cannot send on gRPC stream")
 )
 
 // Client is a wrapper around the generated gRPC client for the Telejob service.

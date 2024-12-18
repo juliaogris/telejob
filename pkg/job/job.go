@@ -1,8 +1,10 @@
 package job
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -17,15 +19,17 @@ type job struct {
 	mutex  sync.Mutex // protects concurrent access to status which contains mutable state
 	status Status
 
-	cmd    *exec.Cmd
-	owner  string
-	cgroup string
+	cmd        *exec.Cmd
+	owner      string
+	cgroup     string
+	dispatcher *logDispatcher
 }
 
 // newJob creates a new job with the given id, command, owner, limits and
 // cgroup.
 func newJob(owner, id string, command string, args []string, limits Limits, cgroup string) (*job, error) {
-	cmd, err := newStartedCmd(id, command, args, limits, cgroup)
+	inputCh := make(chan []byte)
+	cmd, err := newStartedCmd(id, command, args, limits, cgroup, channelWriter(inputCh))
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +42,10 @@ func newJob(owner, id string, command string, args []string, limits Limits, cgro
 			Running:  true,
 			ExitCode: NotTerminated,
 		},
-		cmd:    cmd,
-		owner:  owner,
-		cgroup: cgroup,
+		cmd:        cmd,
+		owner:      owner,
+		cgroup:     cgroup,
+		dispatcher: newStartedLogDispatcher(inputCh),
 	}, nil
 }
 
@@ -97,6 +102,7 @@ func (j *job) wait() {
 	default:
 		slog.Error("cannot wait for job", "err", waitErr, "id", j.status.ID)
 	}
+	j.dispatcher.closeInput()
 	// Write "1" to <job-cgroup>/cgroup.kill to kill all children.
 	if err := writeCgroupFile(j.cgroup, "cgroup.kill", "1"); err != nil {
 		slog.Error("cannot write to cgroup.kill", "err", err, "id", j.status.ID)
@@ -128,8 +134,13 @@ func deleteCgroupWithRetry(cgroup, id string, retries int, dur time.Duration) {
 	slog.Error("cannot delete cgroup after retries", "id", id, "attempt", retries)
 }
 
-// newStartedCmd creates a new started command with the given limits and cgroup.
-func newStartedCmd(id string, command string, args []string, limits Limits, cgroup string) (*exec.Cmd, error) {
+// newLogReader streams the logs of the job to the returned io.Reader.
+func (j *job) newLogReader(ctx context.Context) io.Reader {
+	return j.dispatcher.newReader(ctx)
+}
+
+// newStartedCmd creates a new started command with the given limits, cgroup and command output writer.
+func newStartedCmd(id string, command string, args []string, limits Limits, cgroup string, w io.Writer) (*exec.Cmd, error) {
 	if err := newJobCgroup(cgroup, limits); err != nil {
 		return nil, err
 	}
@@ -144,6 +155,8 @@ func newStartedCmd(id string, command string, args []string, limits Limits, cgro
 	}()
 	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{UseCgroupFD: true, CgroupFD: int(file.Fd())}
+	cmd.Stdout = w
+	cmd.Stderr = w
 	if err := cmd.Start(); err != nil {
 		if err := deleteCgroup(cgroup); err != nil {
 			slog.Error("cannot delete failed job cgroup", "Status.ID", id, "cgroup", cgroup, "err", err)
